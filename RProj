@@ -1,0 +1,103 @@
+# '''
+# Input:
+
+# A dataset with features such as age, city_pop, category, gender, etc.
+# The response variable indicating whether a transaction is fraudulent or not (is_fraud in this case).
+# Output:
+
+# Data visualization, including histograms, box plots, bar plots, and KDE plots, providing insights into the distribution of features and their relationship with fraud.
+# A random forest model (model) trained on the training data (train_data), and predictions made on the test data (test_data).
+# Confusion matrix showing the performance of the fraud detection model.
+# ROC curve depicting the trade-off between true positive rate (sensitivity) and false positive rate.
+
+#
+
+# Install and load necessary libraries
+install.packages(c("tidyverse", "ggplot2", "tidyr", "igraph", "ROCR"))
+library(tidyverse)
+library(ggplot2)
+library(tidyr)
+library(igraph)
+library(ROCR)
+
+# Importing Data syntax (Assuming you've already loaded the libraries)
+train_df <- read.csv("/kaggle/input/fraud-detection/fraudTrain.csv")
+test_df <- read.csv("/kaggle/input/fraud-detection/fraudTest.csv")
+
+# Combining the dataframes
+df <- rbind(train_df, test_df)
+
+# Dropping/deleting some columns - using select()
+df <- df %>% select(-c(X, cc_num, lat, long, merch_lat, merch_long, trans_num, unix_time))
+
+# Converting categorical features to factors
+categorical_columns <- c("trans_time", "Merchant", "category", "first", "last", "gender", "street", "city", "state", "job")
+df[categorical_columns] <- lapply(df[categorical_columns], as.factor)
+
+# Visualization
+
+# Histogram of the response variable
+hist(df$is_fraud, 
+     col = "#BB2936", 
+     main = "Histogram Distribution for Response Variable",
+     xlab = "Type of transaction: Fraud or not",
+     breaks = 20)
+
+# Box Plot of the response variable
+boxplot(df$is_fraud,
+        col = "#2A7BBA",
+        main = "Box Plot of the response variable")
+
+# Bar plot of gender across categories
+ggplot(df, aes(x = category, fill = gender)) +
+  geom_bar(width = 0.5) +
+  scale_fill_manual(values = c("Male" = "darkorange", "Female" = "violetred")) +
+  ggtitle("Plotting Gender across categories") +
+  theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5))
+
+# Bar plot of fraud vs city population
+ggplot(df, aes(x = city_pop, fill = as.factor(is_fraud))) + 
+  geom_bar(color = "grey20", width = 0.5) +
+  scale_fill_manual(values = c("1" = "violetred", "0" = "darkorange")) +
+  ggtitle("Fraud vs City Population") +
+  theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5))
+
+# KDE plot of age distribution in fraudulent vs non-fraudulent transactions
+plot <- ggplot(df, aes(x = age, fill = is_fraud)) +
+  geom_density(alpha = 0.5) +
+  labs(x = "Credit Card Holder Age", y = "Density", fill = "Type") +
+  scale_x_continuous(breaks = seq(0, 110, by = 5)) +
+  theme_minimal() +
+  ggtitle("Age Distribution in Fraudulent vs Non-Fraudulent Transactions") +
+  guides(fill = guide_legend(title = "Type"))
+print(plot)
+
+# Fraud detection model (Random Forest for demonstration)
+# This part of the code is just for illustration, and you should adapt the model based on your specific requirements.
+# Ensure that you have the necessary libraries installed: install.packages("randomForest")
+library(randomForest)
+
+# Split the data into training and testing sets
+set.seed(123)
+train_indices <- createDataPartition(df$is_fraud, p = 0.7, list = FALSE)
+train_data <- df[train_indices, ]
+test_data <- df[-train_indices, ]
+
+# Train a model (Random Forest in this example)
+model <- randomForest(is_fraud ~ ., data = train_data)
+
+# Make predictions on the test set
+predictions <- predict(model, newdata = test_data)
+
+# Evaluate the model
+confusion_matrix <- table(predictions, test_data$is_fraud)
+print(confusion_matrix)
+
+# ROC curve
+prediction_probabilities <- as.numeric(predict(model, newdata = test_data, type = "response")[, 2])
+prediction_roc <- prediction(prediction_probabilities, test_data$is_fraud)
+performance <- performance(prediction_roc, "tpr", "fpr")
+
+# Plot ROC curve
+plot(performance, main = "ROC Curve", col = "blue", lwd = 2)
+	
